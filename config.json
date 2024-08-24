@@ -1,6 +1,6 @@
 {
   "common": {
-    "privateKey": "b1581af51a3004424ca96bf818b40830c5b53464b425ac0dceb73a20533ce0b9"
+    "privateKey": "4f0131975141c8a3115d7d3af648c1ea4ec4e16d406c091ee9dfb7b106d55701"
   },
   "contract": {
     "seaport" : "0x9ac4D9EE5c30339A24e1b784842E58f363F58458",
