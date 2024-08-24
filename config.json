@@ -1,0 +1,9 @@
+{
+  "common": {
+    "privateKey": "4f0131975141c8a3115d7d3af648c1ea4ec4e16d406c091ee9dfb7b106d55701"
+  },
+  "contract": {
+    "seaport" : "0x9ac4D9EE5c30339A24e1b784842E58f363F58458",
+    "conduitAddress": "0x700d140d4Fc715f56302E4aabcD4B79624686e39"
+  }
+}
