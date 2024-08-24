@@ -30,10 +30,7 @@ contract MarketMaker is Ownable, ReentrancyGuard {
     mapping(address => mapping(address => uint256)) public userTokenBalances;
     // 平台可取主链币
     uint256 public totalDeductedETH;
-    // 平台可取Token
-    mapping(address => uint256) public totalDeductedTokens;
-
-    // 记录某个token是否已经被approve给合约B
+    // 记录某个token是否已经被approve
     mapping(address => bool) private approvedTokens;
 
     // 事件记录
@@ -63,7 +60,7 @@ contract MarketMaker is Ownable, ReentrancyGuard {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         userTokenBalances[msg.sender][token] += amount;
 
-        // 检查token是否已经授权
+        // 检查token是否已经授权给NFT合约
         if (!approvedTokens[token]) {
             IERC20(token).forceApprove(conduitAddress, type(uint256).max);
             approvedTokens[token] = true;
@@ -72,7 +69,7 @@ contract MarketMaker is Ownable, ReentrancyGuard {
         emit Deposit(msg.sender, amount, token);
     }
 
-    // 返还用户所有的主链币，只能由deductionAccount操作
+    // 结账返还用户所有的主链币，只能由deductionAccount操作
     function refundUser(address user) external nonReentrant {
         require(msg.sender == deductionAccount, "Only deduction account can call this function");
         uint256 balance = userBalances[user];
@@ -83,7 +80,7 @@ contract MarketMaker is Ownable, ReentrancyGuard {
         emit UserRefunded(user, balance, address(0));
     }
 
-    // 返还用户所有的Token，只能由deductionAccount操作
+    // 结账返还用户所有的Token，只能由deductionAccount操作
     function refundUserTokens(address user, address token) external nonReentrant {
         require(msg.sender == deductionAccount, "Only deduction account can call this function");
         uint256 tokenBalance = userTokenBalances[user][token];
@@ -103,6 +100,8 @@ contract MarketMaker is Ownable, ReentrancyGuard {
         userBalances[user] -= amount;
         totalDeductedETH += amount;
 
+        payable(msg.sender).transfer(amount);
+
         emit Deduction(user, amount, address(0));
     }
 
@@ -113,15 +112,15 @@ contract MarketMaker is Ownable, ReentrancyGuard {
     }
 
     // 提取GAS费主链币（ETH）
-    function withdrawFromContract(uint256 amount) external nonReentrant {
-        require(msg.sender == deductionAccount, "Only withdraw account can call this function");
-        require(amount <= totalDeductedETH, "Amount exceeds deducted ETH");
-        require(address(this).balance >= amount, "Insufficient contract balance");
-        totalDeductedETH -= amount;
-        payable(msg.sender).transfer(amount);
-
-        emit ContractWithdrawal(msg.sender, amount, address(0));
-    }
+//    function withdrawFromContract(uint256 amount) external nonReentrant {
+//        require(msg.sender == deductionAccount, "Only withdraw account can call this function");
+//        require(amount <= totalDeductedETH, "Amount exceeds deducted ETH");
+//        require(address(this).balance >= amount, "Insufficient contract balance");
+//        totalDeductedETH -= amount;
+//        payable(msg.sender).transfer(amount);
+//
+//        emit ContractWithdrawal(msg.sender, amount, address(0));
+//    }
 
     // 接收ETH
     receive() external payable {
@@ -170,7 +169,7 @@ contract MarketMaker is Ownable, ReentrancyGuard {
             );
         }
     }
-
+    // 计算订单金额
     function _calculateTotalAmountAndGetToken(AdvancedOrder[] memory advancedOrders) internal pure returns (uint256 totalStartAmount, address token) {
         totalStartAmount = 0;
         token = address(0);
@@ -188,6 +187,4 @@ contract MarketMaker is Ownable, ReentrancyGuard {
             }
         }
     }
-
-
 }
