@@ -1,6 +1,6 @@
 ## 项目结构简介
 ### 合约
-- contracts/walletNft.sol  NFT做市钱包合约
+- contracts/marketMaker.sol  NFT做市钱包合约
 ### 脚本
 - scripts/deploy.js   合约部署脚本
 
