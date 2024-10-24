@@ -1,18 +1,18 @@
-## 项目结构简介
-### 合约
-- contracts/marketMaker.sol  NFT做市钱包合约
-### 脚本
-- scripts/deploy.js   合约部署脚本
+## Project Structure Introduction
+### contract
+- contracts/marketMaker.sol  ## NFT Market Making Wallet Contract
+### script
+- scripts/deploy.js   ## Contract deployment script
 
-## 准备环境
-安装node.js
+## Prepare the environment
+Install Node.js
 
-## 安装依赖
+## Install dependencies
 ```shell
 npm install
 ```
-## 私钥配置
-将私钥配置在config.js文件中
+## Private key configuration
+Configure the private key in the config. js file
 ```json
 {
   "common": {
@@ -21,8 +21,8 @@ npm install
 }
 ```
 
-## 配置区块链地址
-在`hardhat.config.js`配置文件中,将要部署的网络地址写在`url`这里
+## Configure blockchain address
+`hardhat.config.js` Write the network address to be deployed in the 'url' section of the configuration file
 ```js
 networks: {
     morph: {
@@ -32,7 +32,7 @@ networks: {
 }
 ```
 
-## 部署合约
+## Deploy contract
 ```shell
  npx hardhat run ./scripts/deploy.js --network morph
 ```
