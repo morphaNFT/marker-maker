@@ -28,8 +28,7 @@ contract MarketMaker is Ownable, ReentrancyGuard {
     mapping(address => uint256) public userBalances;
     // 用户存入的Token余额记录
     mapping(address => mapping(address => uint256)) public userTokenBalances;
-    // 平台可取主链币
-    uint256 public totalDeductedETH;
+
     // 记录某个token是否已经被approve
     mapping(address => bool) private approvedTokens;
 
@@ -98,7 +97,6 @@ contract MarketMaker is Ownable, ReentrancyGuard {
         require(userBalances[user] >= amount, "Insufficient balance");
         require(amount > 0, "Deduct amount must be greater than 0");
         userBalances[user] -= amount;
-        totalDeductedETH += amount;
 
         payable(msg.sender).transfer(amount);
 

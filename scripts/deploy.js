@@ -11,6 +11,11 @@ async function main() {
     const MarketMaker = await MarketMakerContract.deploy(config.contract.seaport, config.contract.conduitAddress)
     await MarketMaker.deployed();
     console.log("【MarketMaker】:", MarketMaker.address);
+
+    // owner转移
+    let txTransferOwnership = await MarketMaker.transferOwnership(config.newPotentialOwner)
+    await txTransferOwnership.wait()
+    console.log("【txTransferOwnership】:", txTransferOwnership.hash)
 }
 
 
