@@ -7,7 +7,8 @@ const config = require("./config.json")
 module.exports = {
   networks: {
     morph: {
-      url: `https://rpc-quicknode-holesky.morphl2.io`,
+      // url: `https://rpc-quicknode-holesky.morphl2.io`,
+      url: `https://rpc.morphl2.io`,
       accounts: [`0x${config.common.privateKey}`]
     }
   },
