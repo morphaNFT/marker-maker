@@ -39,6 +39,18 @@ contract MarketMaker is Ownable, ReentrancyGuard {
     event Deduction(address indexed user, uint256 amount, address token);
     event UserRefunded(address indexed user, uint256 amount, address token);
     event ContractWithdrawal(address indexed account, uint256 amount, address token);
+    event ContractStatusChanged(bool isActive);
+    event OperatorAccountChanged(address indexed oldOperator, address indexed newOperator);
+    event DeductionAccountChanged(address indexed oldAccount, address indexed newAccount);
+    event DeductGasFee(address indexed user, address indexed operator, uint256 amount);
+    event OrdersFulfilled(
+        address indexed fulfiller,
+        address indexed recipient,
+        uint256 totalAmount,
+        address token,
+        uint256 maximumFulfilled
+    );
+
 
     constructor(address _seaport, address _conduitAddress) Ownable(msg.sender) {
         deductionAccount = msg.sender;
@@ -59,6 +71,7 @@ contract MarketMaker is Ownable, ReentrancyGuard {
     function deposit() external payable nonReentrant isContractActive {
         require(msg.value > 0, "Deposit amount must be greater than 0");
         userBalances[msg.sender] += msg.value;
+
         emit Deposit(msg.sender, msg.value, address(0));
     }
 
@@ -67,7 +80,6 @@ contract MarketMaker is Ownable, ReentrancyGuard {
         require(amount > 0, "Deposit amount must be greater than 0");
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         userTokenBalances[msg.sender][token] += amount;
-
         // Check if the token has been authorized to the NFT contract
         if (!approvedTokens[token]) {
             IERC20(token).forceApprove(conduitAddress, type(uint256).max);
@@ -106,21 +118,25 @@ contract MarketMaker is Ownable, ReentrancyGuard {
         require(userBalances[user] >= amount, "Insufficient balance");
         require(amount > 0, "Deduct amount must be greater than 0");
         userBalances[user] -= amount;
-
         payable(operatorAccount).transfer(amount);
 
-        emit Deduction(user, amount, address(0));
+        emit DeductGasFee(user, operatorAccount, amount);
     }
 
     // Modify the deduction fund operation account
     function setDeductionAccount(address newDeductionAccount) external onlyOwner {
         require(newDeductionAccount != address(0), "Invalid deduction account");
+        emit DeductionAccountChanged(deductionAccount, newDeductionAccount);
+
         deductionAccount = newDeductionAccount;
+
     }
 
     // Change operational address
     function setOperatorAccount(address newOperatorAccount) external onlyOwner {
         require(newOperatorAccount != address(0), "Invalid operator account");
+        emit OperatorAccountChanged(operatorAccount, newOperatorAccount);
+
         operatorAccount = newOperatorAccount;
     }
 
@@ -170,6 +186,14 @@ contract MarketMaker is Ownable, ReentrancyGuard {
                 recipient,
                 maximumFulfilled
             );
+
+            emit OrdersFulfilled(
+                msg.sender,
+                recipient,
+                totalAmount,
+                token,
+                maximumFulfilled
+            );
         }
     }
     // Calculate the order amount
@@ -195,12 +219,16 @@ contract MarketMaker is Ownable, ReentrancyGuard {
     function deactivateContract() external {
         require(msg.sender == operatorAccount, "Only operator account can deactivate the contract");
         isActive = false;
+
+        emit ContractStatusChanged(false);
     }
 
     // Open the contract, only the operorAccount can call it
     function activateContract() external {
         require(msg.sender == operatorAccount, "Only operator account can activate the contract");
         isActive = true;
+
+        emit ContractStatusChanged(true);
     }
 
 }
