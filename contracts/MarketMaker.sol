@@ -23,16 +23,18 @@ contract MarketMaker is Ownable, ReentrancyGuard {
     address public deductionAccount;
     SeaportInterface public seaportContract;
     address public conduitAddress;
+    address public operatorAccount;
+    bool public isActive = true;
 
-    // 用户存入主链币记录
+    // Record of user depositing main chain coins
     mapping(address => uint256) public userBalances;
-    // 用户存入的Token余额记录
+    // Record of Token Balance Deposited by Users
     mapping(address => mapping(address => uint256)) public userTokenBalances;
 
-    // 记录某个token是否已经被approve
+    // Record whether a certain token has been approved
     mapping(address => bool) private approvedTokens;
 
-    // 事件记录
+    // event
     event Deposit(address indexed user, uint256 amount, address token);
     event Deduction(address indexed user, uint256 amount, address token);
     event UserRefunded(address indexed user, uint256 amount, address token);
@@ -40,26 +42,33 @@ contract MarketMaker is Ownable, ReentrancyGuard {
 
     constructor(address _seaport, address _conduitAddress) Ownable(msg.sender) {
         deductionAccount = msg.sender;
+        operatorAccount = msg.sender;
         require(_seaport != address(0), "Seaport address cannot be empty" );
         require(_conduitAddress != address(0), "conduit address cannot be empty" );
         seaportContract = SeaportInterface(_seaport);
         conduitAddress = _conduitAddress;
     }
 
-    // 用户存入ETH
-    function deposit() external payable nonReentrant {
+    // Modifier, check if the contract is in the open state
+    modifier isContractActive() {
+        require(isActive, "Contract is not active");
+        _;
+    }
+
+    // User deposits ETH
+    function deposit() external payable nonReentrant isContractActive {
         require(msg.value > 0, "Deposit amount must be greater than 0");
         userBalances[msg.sender] += msg.value;
         emit Deposit(msg.sender, msg.value, address(0));
     }
 
-    // 用户存入Token
-    function depositToken(address token, uint256 amount) external nonReentrant {
+    // User deposits Token
+    function depositToken(address token, uint256 amount) external nonReentrant isContractActive {
         require(amount > 0, "Deposit amount must be greater than 0");
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         userTokenBalances[msg.sender][token] += amount;
 
-        // 检查token是否已经授权给NFT合约
+        // Check if the token has been authorized to the NFT contract
         if (!approvedTokens[token]) {
             IERC20(token).forceApprove(conduitAddress, type(uint256).max);
             approvedTokens[token] = true;
@@ -68,8 +77,8 @@ contract MarketMaker is Ownable, ReentrancyGuard {
         emit Deposit(msg.sender, amount, token);
     }
 
-    // 结账返还用户所有的主链币，只能由deductionAccount操作
-    function refundUser(address user) external nonReentrant {
+    // Returning all main chain coins to the user at checkout can only be operated by DeductionAccount
+    function refundUser(address user) external nonReentrant isContractActive {
         require(msg.sender == deductionAccount, "Only deduction account can call this function");
         uint256 balance = userBalances[user];
         require(balance > 0, "No balance to refund");
@@ -79,8 +88,8 @@ contract MarketMaker is Ownable, ReentrancyGuard {
         emit UserRefunded(user, balance, address(0));
     }
 
-    // 结账返还用户所有的Token，只能由deductionAccount操作
-    function refundUserTokens(address user, address token) external nonReentrant {
+    // Returning all tokens to the user during checkout can only be operated by DeductionAccount
+    function refundUserTokens(address user, address token) external nonReentrant isContractActive {
         require(msg.sender == deductionAccount, "Only deduction account can call this function");
         uint256 tokenBalance = userTokenBalances[user][token];
         require(tokenBalance > 0, "No token balance to refund");
@@ -91,41 +100,37 @@ contract MarketMaker is Ownable, ReentrancyGuard {
     }
 
 
-    // 平台扣除GAS费资金（主链币）【如果使用token作为交易币种，用户需要同时存入ETH用户GAS费扣除】
-    function deduct(address user, uint256 amount) external nonReentrant {
+    // Platform deducts GAS fee funds (main chain currency) [If using tokens as trading currency, users need to deposit ETH at the same time for GAS fee deduction]
+    function deduct(address user, uint256 amount) external nonReentrant isContractActive {
         require(msg.sender == deductionAccount, "Only deduction account can call this function");
         require(userBalances[user] >= amount, "Insufficient balance");
         require(amount > 0, "Deduct amount must be greater than 0");
         userBalances[user] -= amount;
 
-        payable(msg.sender).transfer(amount);
+        payable(operatorAccount).transfer(amount);
 
         emit Deduction(user, amount, address(0));
     }
 
-    // 修改扣除资金操作账户
+    // Modify the deduction fund operation account
     function setDeductionAccount(address newDeductionAccount) external onlyOwner {
         require(newDeductionAccount != address(0), "Invalid deduction account");
         deductionAccount = newDeductionAccount;
     }
 
-    // 提取GAS费主链币（ETH）
-//    function withdrawFromContract(uint256 amount) external nonReentrant {
-//        require(msg.sender == deductionAccount, "Only withdraw account can call this function");
-//        require(amount <= totalDeductedETH, "Amount exceeds deducted ETH");
-//        require(address(this).balance >= amount, "Insufficient contract balance");
-//        totalDeductedETH -= amount;
-//        payable(msg.sender).transfer(amount);
-//
-//        emit ContractWithdrawal(msg.sender, amount, address(0));
-//    }
+    // Change operational address
+    function setOperatorAccount(address newOperatorAccount) external onlyOwner {
+        require(newOperatorAccount != address(0), "Invalid operator account");
+        operatorAccount = newOperatorAccount;
+    }
 
-    // 接收ETH
+    // Receive ETH
     receive() external payable {
         userBalances[msg.sender] += msg.value;
         emit Deposit(msg.sender, msg.value, address(0));
     }
 
+    // Purchase NFT on behalf of others
     function fulfillAvailableAdvancedOrders(
         AdvancedOrder[] memory advancedOrders,
         CriteriaResolver[] calldata criteriaResolvers,
@@ -135,13 +140,13 @@ contract MarketMaker is Ownable, ReentrancyGuard {
         address recipient,
         uint256 maximumFulfilled
     )
-    external nonReentrant
+    external nonReentrant isContractActive
     {
         require(msg.sender == deductionAccount, "Only deduction account can call this function");
 
         (uint256 totalAmount, address token) = _calculateTotalAmountAndGetToken(advancedOrders);
         if (totalAmount > 0) {
-            // 先扣款
+            // Deduction first
             if (token == address(0)) {
                 require(userBalances[recipient] >= totalAmount, "Insufficient balance");
                 userBalances[recipient] -= totalAmount;
@@ -155,7 +160,7 @@ contract MarketMaker is Ownable, ReentrancyGuard {
                 amount = 0;
             }
 
-            // nft交易
+            // NFT trading
             seaportContract.fulfillAvailableAdvancedOrders{value: amount}(
                 advancedOrders,
                 criteriaResolvers,
@@ -167,7 +172,7 @@ contract MarketMaker is Ownable, ReentrancyGuard {
             );
         }
     }
-    // 计算订单金额
+    // Calculate the order amount
     function _calculateTotalAmountAndGetToken(AdvancedOrder[] memory advancedOrders) internal pure returns (uint256 totalStartAmount, address token) {
         totalStartAmount = 0;
         token = address(0);
@@ -185,4 +190,17 @@ contract MarketMaker is Ownable, ReentrancyGuard {
             }
         }
     }
+
+    // Close the contract, only the operorAccount can call it
+    function deactivateContract() external {
+        require(msg.sender == operatorAccount, "Only operator account can deactivate the contract");
+        isActive = false;
+    }
+
+    // Open the contract, only the operorAccount can call it
+    function activateContract() external {
+        require(msg.sender == operatorAccount, "Only operator account can activate the contract");
+        isActive = true;
+    }
+
 }
