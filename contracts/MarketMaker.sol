@@ -87,20 +87,19 @@ contract MarketMaker is Ownable, ReentrancyGuard {
 
     function deposit(
         address collectionAddress,
-        address tokenAddress,
         uint256 minPrice,
         uint256 maxPrice,
         bytes memory signature
     ) external payable nonReentrant isContractActive {
         require(msg.value > 0, "Deposit amount must be greater than 0");
         require(
-            _isValidSignature(collectionAddress, tokenAddress, minPrice, maxPrice, signature),
+            _isValidSignature(collectionAddress, address(0), minPrice, maxPrice, signature),
             "Invalid signature"
         );
         userBalances[msg.sender] += msg.value;
         userDeposits[msg.sender] = UserDepositData({
             collectionAddress: collectionAddress,
-            tokenAddress: tokenAddress,
+            tokenAddress: address(0),
             minPrice: minPrice,
             maxPrice: maxPrice
         });
@@ -141,27 +140,32 @@ contract MarketMaker is Ownable, ReentrancyGuard {
         emit Deposit(msg.sender, amount, token);
     }
 
-
     function refundUser(address user) external nonReentrant isContractActive {
         require(msg.sender == deductionAccount, "Only deduction account can call this function");
         uint256 balance = userBalances[user];
         require(balance > 0, "No balance to refund");
         userBalances[user] = 0;
+        // Delete task information
+        delete userDeposits[user];
         (bool success, ) = payable(user).call{value: balance}(new bytes(0));
         require(success, "Transfer failed to the recipient");
 
         emit UserRefunded(user, balance, address(0));
     }
-
+    // todo  删掉存储的任务信息
     function refundUserTokens(address user, address token) external nonReentrant isContractActive {
         require(msg.sender == deductionAccount, "Only deduction account can call this function");
         uint256 tokenBalance = userTokenBalances[user][token];
         require(tokenBalance > 0, "No token balance to refund");
         userTokenBalances[user][token] = 0;
+        // Delete task information
+        delete userDeposits[user];
         IERC20(token).safeTransfer(user, tokenBalance);
+
         emit UserRefunded(user, tokenBalance, token);
     }
 
+    // todo GAS费扣除
     function deduct(address user, uint256 amount) external nonReentrant isContractActive {
         require(msg.sender == deductionAccount, "Only deduction account can call this function");
         require(userBalances[user] >= amount, "Insufficient balance");
